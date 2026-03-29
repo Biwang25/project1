@@ -1,60 +1,43 @@
-name: CI
 
+name: CI
 on:
   push:
     branches: [ main ]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
-      # 1️⃣ Checkout repository
-      - name: Checkout source
-        uses: actions/checkout@v3
+uses: actions/checkout@v2
 
-      # 2️⃣ Get current date (for optional caching)
-      - name: Get Date
+      used to cache dependencies with a timeout
+name: Get Date
         id: get-date
-        run: echo "date=$(date -u +'%Y%m%d')" >> $GITHUB_OUTPUT
+        run: |
+          echo "::set-output name=date::$(/bin/date -u "+%Y%m%d")"
+        shell: bash
 
-      # 3️⃣ Cache Buildozer global directory
-      - name: Cache Buildozer global
-        uses: actions/cache@v4
+name: Cache Buildozer global directory
+        uses: actions/cache@v2
         with:
           path: .buildozer_global
-          key: buildozer-global-${{ hashFiles('buildozer.spec') }}
+          key: buildozer-global-${{ hashFiles('buildozer.spec') }} # Replace with your path
 
-      # 4️⃣ Cache local Buildozer directory
-      - name: Cache Buildozer local
-        uses: actions/cache@v4
+uses: actions/cache@v2
         with:
           path: .buildozer
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+          key: ${{ runner.os }}-${{ steps.get-date.outputs.date }}-${{ hashFiles('buildozer.spec') }}
 
-      # 5️⃣ Install system dependencies + Cython
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y python3-pip build-essential git zip unzip openjdk-17-jdk \
-          python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev \
-          libsdl2-ttf-dev libportmidi-dev libswscale-dev libavformat-dev \
-          libavcodec-dev zlib1g-dev
-          pip install --upgrade pip
-          pip install buildozer cython
-
-      # 6️⃣ Build APK
-      - name: Build APK with Buildozer
-        id: buildozer
+name: Build with Buildozer
         uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
         with:
           command: buildozer android debug
           buildozer_version: stable
 
-      # 7️⃣ Upload APK artifact
-      - name: Upload APK
-        uses: actions/upload-artifact@v3
+name: Upload artifacts
+        uses: actions/upload-artifact@v2
         with:
-          name: MyApplication-debug.apk
-          # This will find the APK file in the standard Buildozer output directory
-          path: ./.buildozer/android/platform/build/dists/**/bin/*.apk
+          name: package
+          path: ${{ steps.buildozer.outputs.filename }}
